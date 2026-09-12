@@ -1,0 +1,173 @@
+// This file sets up the database schema for NewFinTech.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(cuid())
+  name              String?
+  email             String?   @unique
+  emailVerified     DateTime?
+  passwordHash      String?
+  avatarUrl         String?
+  currency          String    @default("USD")
+  country           String    @default("US")
+  timezone          String    @default("UTC")
+  language          String    @default("en")
+  theme             String    @default("system")
+  notificationPrefs String    @default("{}")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  accounts          BankAccount[]
+  transactions      Transaction[]
+  budgets           Budget[]
+  subscriptions     Subscription[]
+  insights          FinancialInsight[]
+  notifications     Notification[] @relation("user_notifications")
+  preferences       UserPreference?
+  bankConnections   BankConnection[]
+}
+
+model BankConnection {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider        String
+  providerToken   String?
+  institutionName String?
+  institutionId   String?
+  status          String   @default("active")
+  lastSyncedAt    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  accounts        BankAccount[]
+  @@unique([userId, provider, institutionId])
+}
+
+model BankAccount {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectionId     String?
+  connection       BankConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  institutionName  String?
+  accountType      String
+  accountName      String?
+  accountNumber    String?
+  currency         String    @default("USD")
+  balance          Float     @default(0)
+  availableBalance Float     @default(0)
+  isDeleted        Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  transactions     Transaction[]
+  @@index([userId])
+}
+
+model Transaction {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId     String
+  account       BankAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  amount        Float
+  type          String
+  description   String?
+  merchantName  String?
+  category      String    @default("other")
+  date          DateTime
+  status        String    @default("posted")
+  isReviewed    Boolean   @default(false)
+  notes         String?
+  originalData  String?
+  isDeleted     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  @@index([userId, date])
+  @@index([userId, accountId])
+  @@index([userId, category])
+}
+
+model Category {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  icon         String?
+  color        String   @default("#6366f1")
+  parentId     String?
+  category     Category? @relation("Category_parent", fields: [parentId], references: [id])
+  subCategories Category[] @relation("Category_parent")
+  createdAt    DateTime @default(now())
+}
+
+model Budget {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String
+  amount      Float
+  period      String    @default("monthly")
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  @@index([userId, category])
+}
+
+model Subscription {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchantName    String
+  amount          Float
+  currency        String    @default("USD")
+  frequency       String    @default("monthly")
+  nextPaymentDate DateTime?
+  category        String    @default("subscriptions")
+  isDeleted       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  @@index([userId])
+}
+
+model FinancialInsight {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  body       String
+  type       String    @default("info")
+  severity   String    @default("info")
+  createdAt  DateTime  @default(now())
+  isRead     Boolean   @default(false)
+  @@index([userId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("user_notifications", fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  message    String
+  type       String    @default("info")
+  isRead     Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  @@index([userId, isRead])
+}
+
+model UserPreference {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultCurrency String  @default("USD")
+  theme          String  @default("system")
+  language       String  @default("en")
+  notifications  String  @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
