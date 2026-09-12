@@ -10,7 +10,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   PiggyBank,
-  Lightning,
+  Zap,
   Calendar,
   RefreshCw,
   AlertTriangle,
@@ -78,7 +78,7 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t("analytics.title")}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{t("analytics.title")}</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">{t("analytics.overview")}</p>
       </div>
 
@@ -90,7 +90,7 @@ export default function AnalyticsPage() {
       )}
 
       {/* Top stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title={t("analytics.totalIncome")} value={totalIncome} Icon={TrendingUp} trend={monthlyGrowth >= 0 ? "up" : "down"} trendLabel={`${monthlyGrowth >= 0 ? "+" : ""}${monthlyGrowth.toFixed(1)}%`} />
         <StatCard title={t("analytics.totalExpenses")} value={totalExpenses} Icon={TrendingDown} trend={monthlyGrowth >= 0 ? "down" : "up"} trendLabel={`${Math.abs(monthlyGrowth).toFixed(1)}%`} />
         <StatCard title={t("analytics.netSavings")} value={netSavings} Icon={Wallet} />
@@ -98,7 +98,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Income vs Expenses */}
         <Card>
           <CardHeader>
@@ -108,12 +108,12 @@ export default function AnalyticsPage() {
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.25} vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 12 }} />
                   <YAxis tick={{ fill: "#94a3b8", fontSize: 12 }} tickFormatter={(v) => `$${v / 1000}k`} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "rgba(255,255,255,0.95)", border: "1px solid #e2e8f0", borderRadius: "12px" }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}`, ""]}
+                    contentStyle={{ backgroundColor: "rgba(255,255,255,0.97)", border: "1px solid #e2e8f0", borderRadius: "12px", color: "#0f172a", fontSize: 12 }}
+                    formatter={(value) => [`$${Number(value).toLocaleString()}`, ""]}
                   />
                   <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
@@ -137,7 +137,7 @@ export default function AnalyticsPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }: { name?: string; percent?: number }) => `${name || ''} ${((percent ?? 0) * 100).toFixed(0)}%`}
                     outerRadius={100}
                     fill="#8884d8"
                     dataKey="value"
@@ -148,8 +148,8 @@ export default function AnalyticsPage() {
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{ backgroundColor: "rgba(255,255,255,0.95)", border: "1px solid #e2e8f0", borderRadius: "12px" }}
-                    formatter={(value: number, name: string) => [`$${value.toLocaleString()}`, name]}
+                    contentStyle={{ backgroundColor: "rgba(255,255,255,0.97)", border: "1px solid #e2e8f0", borderRadius: "12px", color: "#0f172a", fontSize: 12 }}
+                    formatter={(value, name) => [`$${Number(value).toLocaleString()}`, name]}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -174,10 +174,10 @@ export default function AnalyticsPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white">{m.merchant}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">{m.count} transactions</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{m.count} transactions</p>
                   </div>
                 </div>
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                <span className="text-sm font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">
                   -${m.amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
                 </span>
               </div>
@@ -205,10 +205,10 @@ function StatCard({ title, value, subtitle, trend, trendLabel, Icon }: {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+          <p className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1">
             {`$${value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
           </p>
-          {subtitle && <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</p>}
+          {subtitle && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>}
         </div>
         <div className="h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
           <Icon className="h-5 w-5" />

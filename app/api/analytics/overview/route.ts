@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import {
+  analyticsWhereFragment,
+  fromCents,
+  resolveCurrencyScope,
+  roundMoney,
+  sumMoney,
+  toCents,
+  utcMonthStart,
+} from "@/lib/money";
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -10,94 +19,127 @@ export async function GET() {
 
   const userId = session.user.id;
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  // UTC month boundary: server TZ must not shift which transactions fall
+  // into "this month".
+  const monthStart = utcMonthStart(now);
+  const baseFilter = analyticsWhereFragment();
 
   // Account balances
   const accounts = await prisma.bankAccount.findMany({
     where: { userId, isDeleted: false },
-    select: { id: true, name: true, accountType: true, balance: true, currency: true },
+    select: { id: true, accountName: true, accountType: true, balance: true, currency: true },
   });
 
-  const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
+  // Single-currency guard: refuse to silently add balances across currencies.
+  // Caller scopes explicitly with ?displayCurrency=<CODE> (no FX conversion
+  // exists, so mixed sums 400 instead of mis-converting).
+  const displayCurrency = new URL(request.url).searchParams.get("displayCurrency") || undefined;
+  const scope = resolveCurrencyScope(
+    accounts.map((a) => a.currency || "USD"),
+    displayCurrency
+  );
+  if (scope.mixed && (scope.unknownDisplay || !displayCurrency)) {
+    return NextResponse.json(
+      {
+        error: displayCurrency
+          ? `Unknown displayCurrency "${displayCurrency}".`
+          : "Multiple account currencies present; pass ?displayCurrency=<CODE> to scope totals to one currency.",
+        code: "MIXED_CURRENCY",
+        currencies: [...new Set(accounts.map((a) => a.currency || "USD"))],
+        hint: "No FX conversion is performed; totals are computed in a single currency only.",
+      },
+      { status: 400 }
+    );
+  }
+  const inScopeAccounts = scope.mixed
+    ? accounts.filter((a) => (a.currency || "USD") === scope.baseCurrency)
+    : accounts;
+  const scopedAccountIds = scope.mixed ? inScopeAccounts.map((a) => a.id) : undefined;
+
+  // Every transaction sum below excludes soft-deleted rows, user-excluded
+  // rows (status="excluded"), and internal transfers (category="Transfer",
+  // which would otherwise inflate both income and expenses as a pair).
+  const txnWhere = (extra: Record<string, unknown>): Record<string, unknown> => ({
+    userId,
+    ...baseFilter,
+    ...(scopedAccountIds ? { accountId: { in: scopedAccountIds } } : {}),
+    ...extra,
+  });
+
+  // Headline totals accumulate in integer cents (exact to 2dp).
+  const totalBalance = sumMoney(inScopeAccounts.map((a) => a.balance));
 
   // Monthly income & expenses
   const [monthlyIncomeResult, monthlyExpensesResult] = await Promise.all([
     prisma.transaction.aggregate({
-      where: {
-        userId,
+      where: txnWhere({
         type: "income",
         date: { gte: monthStart },
-        isDeleted: false,
-      },
+      }),
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: {
-        userId,
+      where: txnWhere({
         type: "expense",
         date: { gte: monthStart },
-        isDeleted: false,
-      },
+      }),
       _sum: { amount: true },
     }),
   ]);
 
-  const monthlyIncome = monthlyIncomeResult._sum.amount ?? 0;
-  const monthlyExpenses = monthlyExpensesResult._sum.amount ?? 0;
-  const savingsRate = monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100 : 0;
-  const netCashFlow = monthlyIncome - monthlyExpenses;
+  const monthlyIncome = roundMoney(monthlyIncomeResult._sum.amount ?? 0);
+  const monthlyExpenses = roundMoney(monthlyExpensesResult._sum.amount ?? 0);
+  const incomeCents = toCents(monthlyIncome);
+  const expenseCents = toCents(monthlyExpenses);
+  const savingsRate = incomeCents > 0 ? ((incomeCents - expenseCents) / incomeCents) * 100 : 0;
+  const netCashFlow = fromCents(incomeCents - expenseCents);
 
-  // Recent transactions
+  // Recent transactions (a list, not a sum: excluded rows stay visible here
+  // so users can review and manage them).
   const recentTransactions = await prisma.transaction.findMany({
     where: { userId, isDeleted: false },
     orderBy: { date: "desc" },
     take: 5,
     include: {
-      account: { select: { name: true } },
+      account: { select: { accountName: true } },
     },
   });
 
-  // Monthly trend (last 6 months)
+  // Monthly trend (last 6 UTC calendar months)
   const months = [];
   for (let i = 5; i >= 0; i--) {
-    const m = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const m = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const nextM = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 1));
     const [income, expenses] = await Promise.all([
       prisma.transaction.aggregate({
-        where: {
-          userId,
+        where: txnWhere({
           type: "income",
-          date: { gte: m, lt: new Date(m.getFullYear(), m.getMonth() + 1, 1) },
-          isDeleted: false,
-        },
+          date: { gte: m, lt: nextM },
+        }),
         _sum: { amount: true },
       }),
       prisma.transaction.aggregate({
-        where: {
-          userId,
+        where: txnWhere({
           type: "expense",
-          date: { gte: m, lt: new Date(m.getFullYear(), m.getMonth() + 1, 1) },
-          isDeleted: false,
-        },
+          date: { gte: m, lt: nextM },
+        }),
         _sum: { amount: true },
       }),
     ]);
     months.push({
-      month: m.toLocaleDateString("en-US", { month: "short" }),
-      income: income._sum.amount ?? 0,
-      expenses: expenses._sum.amount ?? 0,
+      month: m.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }),
+      income: roundMoney(income._sum.amount ?? 0),
+      expenses: roundMoney(expenses._sum.amount ?? 0),
     });
   }
 
-  // Category breakdown (current month expenses)
+  // Category breakdown (current UTC month expenses; transfers excluded above)
   const categorySpending = await prisma.transaction.groupBy({
     by: ["category"],
-    where: {
-      userId,
+    where: txnWhere({
       type: "expense",
       date: { gte: monthStart },
-      isDeleted: false,
-    },
+    }),
     _sum: { amount: true },
     orderBy: { _sum: { amount: "desc" } },
   });
@@ -121,7 +163,7 @@ export async function GET() {
 
   const categoryData = categorySpending.map((c) => ({
     name: c.category,
-    value: c._sum.amount ?? 0,
+    value: roundMoney(c._sum.amount ?? 0),
     color: categoryColors[c.category] || "#6b7280",
   }));
 
@@ -139,17 +181,19 @@ export async function GET() {
     take: 4,
   });
 
-  // Financial health score (calculated)
+  // Financial health score (calculated, transfers/excluded filtered)
   const totalExpensesAllTime = await prisma.transaction.aggregate({
-    where: { userId, type: "expense", isDeleted: false },
+    where: txnWhere({ type: "expense" }),
     _sum: { amount: true },
   });
   const totalIncomeAllTime = await prisma.transaction.aggregate({
-    where: { userId, type: "income", isDeleted: false },
+    where: txnWhere({ type: "income" }),
     _sum: { amount: true },
   });
-  const overallSavingsRate = totalIncomeAllTime._sum.amount
-    ? ((totalIncomeAllTime._sum.amount - (totalExpensesAllTime._sum.amount ?? 0)) / totalIncomeAllTime._sum.amount) * 100
+  const allIncomeCents = toCents(roundMoney(totalIncomeAllTime._sum.amount ?? 0));
+  const allExpenseCents = toCents(roundMoney(totalExpensesAllTime._sum.amount ?? 0));
+  const overallSavingsRate = allIncomeCents
+    ? ((allIncomeCents - allExpenseCents) / allIncomeCents) * 100
     : 0;
 
   // Simplified health score
@@ -166,7 +210,9 @@ export async function GET() {
     monthlyExpenses,
     savingsRate,
     netCashFlow,
-    accounts,
+    currency: scope.baseCurrency,
+    ...(scope.mixed ? { excludedCurrencies: scope.excludedCurrencies } : {}),
+    accounts: inScopeAccounts.map((a) => ({ ...a, name: a.accountName })),
     recentTransactions: recentTransactions.map((t) => ({
       ...t,
       date: t.date.toISOString(),

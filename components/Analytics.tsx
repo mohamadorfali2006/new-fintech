@@ -1,11 +1,6 @@
-import { Analytics } from "next/analytics";
-
-export function provided(appOptions: {
- .addEventListener?: (event: string, listener: (...args: any[]) => void) => void;
-  : any
-}) {
-  // Analytics is disabled — add your own provider here when ready.
-  // e.g. import { Analytics } from "@vercel/analytics/react";
-  // return <Analytics />;
+// Analytics placeholder — add your own analytics provider here when ready.
+// e.g. import { Analytics } from "@vercel/analytics/react";
+// return <Analytics />;
+export function provided() {
   return null;
 }

@@ -45,6 +45,46 @@ export function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+export interface HealthScoreBreakdown {
+  savingsScore: number;
+  budgetScore: number;
+  stabilityScore: number;
+  recurringScore: number;
+  weights: { savings: number; budget: number; stability: number; recurring: number };
+}
+
+export function calculateHealthScoreWithBreakdown(data: {
+  savingsRate: number;
+  expenseToIncomeRatio: number;
+  budgetAdherence: number;
+  recurringExpenseRatio: number;
+  spendingVolatility: number;
+}): { score: number; breakdown: HealthScoreBreakdown } {
+  // savingsRate may be a fraction (0-1) or a percent (0-100); normalize to fraction.
+  const savingsFrac = data.savingsRate > 1 ? data.savingsRate / 100 : data.savingsRate;
+  const savingsScore = Math.max(0, Math.min(100, (savingsFrac / 0.3) * 100));
+  const budgetScore = Math.max(0, Math.min(100, data.budgetAdherence * 100));
+  const stabilityScore = Math.max(
+    0,
+    Math.min(100, 100 - Math.max(0, data.spendingVolatility) * 100)
+  );
+  const recurringScore = Math.max(
+    0,
+    Math.min(100, 100 - Math.max(0, data.recurringExpenseRatio) * 100)
+  );
+  const weights = { savings: 0.3, budget: 0.3, stability: 0.2, recurring: 0.2 };
+  const score = Math.round(
+    savingsScore * weights.savings +
+      budgetScore * weights.budget +
+      stabilityScore * weights.stability +
+      recurringScore * weights.recurring
+  );
+  return {
+    score,
+    breakdown: { savingsScore: Math.round(savingsScore), budgetScore: Math.round(budgetScore), stabilityScore: Math.round(stabilityScore), recurringScore: Math.round(recurringScore), weights },
+  };
+}
+
 export function calculateHealthScore(data: {
   savingsRate: number;
   expenseToIncomeRatio: number;
@@ -52,23 +92,11 @@ export function calculateHealthScore(data: {
   recurringExpenseRatio: number;
   spendingVolatility: number;
 }): number {
-  const savingsScore = Math.min(100, (data.savingsRate / 0.3) * 100);
-  const budgetScore = Math.min(100, data.budgetAdherence * 100);
-  const stabilityScore = Math.max(
-    0,
-    100 - data.spendingVolatility * 100
-  );
-  const recurringScore = Math.max(
-    0,
-    100 - data.recurringExpenseRatio * 100
-  );
-  return Math.round(
-    savingsScore * 0.3 + budgetScore * 0.3 + stabilityScore * 0.2 + recurringScore * 0.2
-  );
+  return calculateHealthScoreWithBreakdown(data).score;
 }
 
 export function detectRecurring(
-  transactions: Array<{ id: string; merchantName: string; amount: number; date: Date | string }>
+  transactions: Array<{ id: string; merchantName: string; amount: number; date: Date | string; type?: string }>
 ): Array<{ merchantName: string; amount: number; frequency: string; occurrences: number }> {
   const groups = new Map<string, Array<{ amount: number; date: Date }>>();
   for (const t of transactions) {

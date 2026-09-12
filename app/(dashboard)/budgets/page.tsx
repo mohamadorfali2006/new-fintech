@@ -234,7 +234,7 @@ export default function BudgetsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t("budgets.title")}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{t("budgets.title")}</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
             {summary?.categoryCount || 0} active categories tracked
           </p>
@@ -267,7 +267,7 @@ export default function BudgetsPage() {
                 <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   {t("budgets.totalBudgeted")}
                 </p>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                <h3 className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1">
                   {formatCurrency(summary?.totalBudgeted || 0)}
                 </h3>
               </div>
@@ -285,7 +285,7 @@ export default function BudgetsPage() {
                 <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   {t("budgets.totalSpent")}
                 </p>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                <h3 className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1">
                   {formatCurrency(summary?.totalSpent || 0)}
                 </h3>
               </div>
@@ -303,7 +303,7 @@ export default function BudgetsPage() {
                 <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   {t("budgets.totalRemaining")}
                 </p>
-                <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                <h3 className="text-2xl font-bold tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400 mt-1">
                   {formatCurrency(summary?.totalRemaining || 0)}
                 </h3>
               </div>
@@ -338,7 +338,7 @@ export default function BudgetsPage() {
                       color: "#fff",
                       border: "none",
                     }}
-                    formatter={(val: any) => formatCurrency(Number(val))}
+                    formatter={(val) => formatCurrency(Number(val))}
                   />
                   <Bar dataKey="budgeted" name="Budgeted" fill="#6366f1" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="spent" name="Spent" fill="#f59e0b" radius={[4, 4, 0, 0]} />
@@ -357,7 +357,7 @@ export default function BudgetsPage() {
         <CardContent className="p-0 sm:p-5">
           {budgets.length === 0 ? (
             <div className="py-12 text-center px-4">
-              <AlertCircle className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+              <AlertCircle className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                 {t("budgets.noBudgets")}
               </h3>
@@ -415,14 +415,14 @@ export default function BudgetsPage() {
                           </span>
                           <button
                             onClick={() => openEditDialog(b)}
-                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-indigo-600"
+                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
                             title={t("budgets.edit")}
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => setDeletingBudgetId(b.id)}
-                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-600"
+                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                             title={t("budgets.delete")}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -433,15 +433,15 @@ export default function BudgetsPage() {
                       {/* Numbers */}
                       <div className="flex items-baseline justify-between text-sm mb-2">
                         <span className="text-gray-500 dark:text-gray-400">
-                          {t("budgets.spent")}: <strong className="text-gray-900 dark:text-white">{formatCurrency(b.spent)}</strong>
+                          {t("budgets.spent")}: <strong className="tabular-nums tracking-tight text-gray-900 dark:text-white">{formatCurrency(b.spent)}</strong>
                         </span>
                         <span className="text-gray-500 dark:text-gray-400">
-                          {t("budgets.amount")}: <strong className="text-gray-900 dark:text-white">{formatCurrency(b.amount)}</strong>
+                          {t("budgets.amount")}: <strong className="tabular-nums tracking-tight text-gray-900 dark:text-white">{formatCurrency(b.amount)}</strong>
                         </span>
                       </div>
 
                       {/* Progress Bar */}
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 h-2.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round(percent))}>
                         <div
                           className={`h-full rounded-full transition-all duration-300 ${
                             isOver ? "bg-red-500" : isClose ? "bg-amber-500" : "bg-indigo-600"
@@ -451,17 +451,17 @@ export default function BudgetsPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 mt-3 pt-2 border-t border-gray-100 dark:border-gray-700/50">
+                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mt-3 pt-2 border-t border-gray-100 dark:border-gray-700/50">
                       <span>{percent}% utilized</span>
                       <span>
                         {isOver ? (
-                          <span className="text-red-500 font-medium">
+                          <span className="text-red-600 dark:text-red-400 font-medium">
                             {formatCurrency(b.spent - b.amount)} over
                           </span>
                         ) : (
                           <span>
                             {t("budgets.remaining")}:{" "}
-                            <strong className="text-emerald-600 dark:text-emerald-400">
+                            <strong className="tabular-nums text-emerald-600 dark:text-emerald-400">
                               {formatCurrency(b.remaining)}
                             </strong>
                           </span>

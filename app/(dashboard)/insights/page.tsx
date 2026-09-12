@@ -155,7 +155,7 @@ export default function InsightsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-indigo-500" />
             {t("insights.title")}
           </h1>
@@ -194,7 +194,7 @@ export default function InsightsPage() {
               <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">
                 Total Insights
               </p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+              <h3 className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1">
                 {insights.length}
               </h3>
             </div>
@@ -210,7 +210,7 @@ export default function InsightsPage() {
               <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">
                 {t("insights.good")}
               </p>
-              <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+              <h3 className="text-2xl font-bold tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400 mt-1">
                 {severityCounts.good}
               </h3>
             </div>
@@ -226,7 +226,7 @@ export default function InsightsPage() {
               <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">
                 {t("insights.warning")}
               </p>
-              <h3 className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+              <h3 className="text-2xl font-bold tabular-nums tracking-tight text-amber-600 dark:text-amber-400 mt-1">
                 {severityCounts.warning}
               </h3>
             </div>
@@ -242,7 +242,7 @@ export default function InsightsPage() {
               <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">
                 {t("insights.info")}
               </p>
-              <h3 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+              <h3 className="text-2xl font-bold tabular-nums tracking-tight text-blue-600 dark:text-blue-400 mt-1">
                 {severityCounts.info}
               </h3>
             </div>
@@ -288,7 +288,7 @@ export default function InsightsPage() {
       {filteredInsights.length === 0 ? (
         <Card className="bg-gray-50 dark:bg-gray-800/50">
           <CardContent className="py-12 text-center">
-            <Lightbulb className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <Lightbulb className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
               {t("insights.noInsights")}
             </h3>
@@ -365,7 +365,7 @@ export default function InsightsPage() {
                         {insight.body}
                       </p>
 
-                      <p className="text-xs text-gray-400 dark:text-gray-500 pt-1 flex items-center gap-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 pt-1 flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {new Date(insight.createdAt).toLocaleDateString("en-US", {
                           month: "short",
@@ -424,7 +424,7 @@ export default function InsightsPage() {
                   >
                     {selectedInsight.severity}
                   </span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 capitalize">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300 capitalize">
                     {selectedInsight.type}
                   </span>
                 </div>
@@ -436,7 +436,7 @@ export default function InsightsPage() {
                   {selectedInsight.body}
                 </p>
 
-                <div className="text-xs text-gray-400 border-t border-gray-100 dark:border-gray-800 pt-3 flex items-center justify-between">
+                <div className="text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800 pt-3 flex items-center justify-between">
                   <span>
                     Generated:{" "}
                     {new Date(selectedInsight.createdAt).toLocaleString("en-US", {

@@ -189,7 +189,7 @@ export default function SubscriptionsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
             <CreditCard className="h-6 w-6 text-indigo-500" />
             {t("subscriptions.title")}
           </h1>
@@ -225,7 +225,7 @@ export default function SubscriptionsPage() {
                 <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   {t("subscriptions.totalMonthly")}
                 </p>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                <h3 className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1">
                   {formatCurrency(summary?.totalMonthly || 0)}
                 </h3>
               </div>
@@ -243,7 +243,7 @@ export default function SubscriptionsPage() {
                 <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   {t("subscriptions.totalAnnual")}
                 </p>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                <h3 className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1">
                   {formatCurrency(summary?.totalAnnual || 0)}
                 </h3>
               </div>
@@ -261,7 +261,7 @@ export default function SubscriptionsPage() {
                 <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   {t("subscriptions.potentialSavings")}
                 </p>
-                <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                <h3 className="text-2xl font-bold tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400 mt-1">
                   {formatCurrency(summary?.potentialSavings || 0)}/yr
                 </h3>
               </div>
@@ -315,7 +315,7 @@ export default function SubscriptionsPage() {
         <CardContent className="p-0">
           {subscriptions.length === 0 ? (
             <div className="py-12 text-center p-4">
-              <CreditCard className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+              <CreditCard className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                 {t("subscriptions.noSubscriptions")}
               </h3>
@@ -364,7 +364,7 @@ export default function SubscriptionsPage() {
                           {sub.category}
                         </span>
                       </TableCell>
-                      <TableCell className="capitalize text-sm text-gray-600 dark:text-gray-400">
+                      <TableCell className="capitalize text-sm tabular-nums text-gray-600 dark:text-gray-300">
                         {sub.frequency}
                       </TableCell>
                       <TableCell>
@@ -384,19 +384,19 @@ export default function SubscriptionsPage() {
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-400 text-xs">—</span>
+                          <span className="text-gray-400 text-xs">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right font-semibold text-gray-900 dark:text-white text-sm">
+                      <TableCell className="text-right font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white text-sm">
                         {formatCurrency(sub.monthlyCost)}
                       </TableCell>
-                      <TableCell className="text-right text-gray-500 dark:text-gray-400 text-sm">
+                      <TableCell className="text-right tabular-nums text-gray-500 dark:text-gray-400 text-sm">
                         {formatCurrency(sub.annualCost)}
                       </TableCell>
                       <TableCell className="text-center">
                         <button
                           onClick={() => setDeletingSubId(sub.id)}
-                          className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-red-600"
+                          className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                           title={t("subscriptions.cancel")}
                         >
                           <Trash2 className="h-4 w-4" />

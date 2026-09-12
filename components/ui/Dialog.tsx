@@ -23,8 +23,8 @@ const DialogHeader = ({ children }: { children: React.ReactNode }) => (
   <div className="flex flex-col space-y-1.5 pb-4">{children}</div>
 );
 
-const DialogTitle = ({ children }: { children: React.ReactNode }) => (
-  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{children}</h2>
+const DialogTitle = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
+  <h2 className={className}>{children}</h2>
 );
 
 const DialogFooter = ({ children }: { children: React.ReactNode }) => (

@@ -1,21 +1,19 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, type ComponentType } from "react";
 import {
   TrendingUp,
   TrendingDown,
   Wallet,
   ArrowUpRight,
-  ArrowDownRight,
   CreditCard,
   PiggyBank,
-  Lightning,
   Calendar,
   RefreshCw,
   AlertTriangle,
-  Info,
-  CheckCircle,
+  Repeat,
+  Plus as PlusIcon,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -23,9 +21,9 @@ import {
   CardHeader,
   CardTitle,
   CardContent,
-  CardFooter,
 } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import {
   AreaChart,
   Area,
@@ -119,7 +117,7 @@ function HealthRing({ score, size = 120 }: { score: number; size?: number }) {
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-3xl font-bold text-gray-900 dark:text-white">{score}</span>
+        <span className="text-3xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white">{score}</span>
       </div>
     </div>
   );
@@ -137,40 +135,83 @@ function StatCard({
   valueClassName,
 }: {
   title: string;
-  value: number;
+  value: number | Date;
   subtitle?: string;
   trend?: "up" | "down";
   trendLabel?: string;
-  Icon: React.FC<{ className?: string }>;
+  Icon: ComponentType<{ className?: string }>;
   href?: string;
   currency?: string;
   valueClassName?: string;
 }) {
   const t = useTranslations();
-  const formattedValue = currency
+  const formattedValue = typeof value === "number" && currency
     ? new Intl.NumberFormat("en-US", {
         style: "currency",
         currency,
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       }).format(value)
-    : value.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    : value instanceof Date
+    ? value.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+    : String(value);
 
-  const Component = href ? Link : "div";
+  const cardClassName =
+    "group rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 transition-all hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-700 hover:-translate-y-0.5";
+
+  const cardBody = (
+    <>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+          <p className={`text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1 ${valueClassName || ""}`}>
+            {formattedValue}
+          </p>
+          {subtitle && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
+          )}
+        </div>
+        <div className="h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+      {trend && trendLabel && (
+        <div className="flex items-center gap-1 mt-3 text-sm">
+          {trend === "up" ? (
+            <TrendingUp className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+          ) : (
+            <TrendingDown className="h-4 w-4 text-red-500" aria-hidden="true" />
+          )}
+          <span
+            className={`font-medium ${trend === "up" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
+          >
+            {trendLabel}
+          </span>
+        </div>
+      )}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={cardClassName}>
+        {cardBody}
+      </Link>
+    );
+  }
 
   return (
-    <Component
-      href={href}
-      className={`group rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 transition-all hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-700 hover:-translate-y-0.5`}
+    <div
+      className={cardClassName}
     >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-          <p className={`text-2xl font-bold text-gray-900 dark:text-white mt-1 ${valueClassName || ""}`}>
+          <p className={`text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1 ${valueClassName || ""}`}>
             {formattedValue}
           </p>
           {subtitle && (
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
           )}
         </div>
         <div className="h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
@@ -191,7 +232,7 @@ function StatCard({
           </span>
         </div>
       )}
-    </Component>
+    </div>
   );
 }
 
@@ -200,32 +241,69 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function fetchData() {
-    setLoading(true);
-    fetch("/api/analytics/overview")
-      .then((r) => r.json())
-      .then((d) => setData(d))
-      .finally(() => {
-        setLoading(false);
-        setRefreshing(false);
-      });
-  }
-
-  useEffect(() => {
-    fetchData();
+  const fetchData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setError(null);
+    try {
+      const res = await fetch("/api/analytics/overview");
+      if (!res.ok) throw new Error("Request failed (" + res.status + ")");
+      const d = (await res.json()) as DashboardData;
+      setData(d);
+    } catch {
+      setError("Could not load your dashboard. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchData(false);
+  }, [fetchData]);
+
   async function handleRefresh() {
-    setRefreshing(true);
-    await fetchData();
+    await fetchData(true);
   }
 
   if (loading) {
-    return <LoadingScreen />;
+    return <LoadingScreen message={t("common.loading")} />;
   }
 
-  if (!data) return null;
+  if (error) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 p-8 text-center" role="alert">
+        <div className="h-12 w-12 rounded-full bg-red-50 dark:bg-red-950/30 flex items-center justify-center">
+          <AlertTriangle className="h-6 w-6 text-red-500" aria-hidden="true" />
+        </div>
+        <div>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">{t("common.error")}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{error}</p>
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => fetchData(false)} isLoading={refreshing}>
+          <RefreshCw className="h-4 w-4 me-2" aria-hidden="true" />
+          {t("common.tryAgain")}
+        </Button>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-2 p-8 text-center">
+        <Wallet className="h-8 w-8 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t("common.noResults")}</p>
+        <Link href="/accounts">
+          <Button variant="secondary" size="sm">{t("accounts.connectBank")}</Button>
+        </Link>
+      </div>
+    );
+  }
 
   const { totalBalance, monthlyIncome, monthlyExpenses, savingsRate, netCashFlow, accounts, recentTransactions, monthlyData, categoryData, insights, upcomingSubscriptions, financialHealthScore, demoMode } = data;
   const currency = accounts[0]?.currency || "USD";
@@ -235,7 +313,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
             {t("dashboard.welcome")} Alex
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
@@ -251,8 +329,8 @@ export default function DashboardPage() {
             </div>
           )}
           <Button variant="secondary" size="sm" onClick={handleRefresh} isLoading={refreshing}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            {t("common.refresh") || "Refresh"}
+            <RefreshCw className="h-4 w-4 me-2" aria-hidden="true" />
+            Refresh
           </Button>
         </div>
       </div>
@@ -326,7 +404,7 @@ export default function DashboardPage() {
                       <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.25} vertical={false} />
                   <XAxis
                     dataKey="month"
                     axisLine={false}
@@ -341,12 +419,14 @@ export default function DashboardPage() {
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "rgba(255,255,255,0.95)",
+                      backgroundColor: "rgba(255,255,255,0.97)",
                       border: "1px solid #e2e8f0",
                       borderRadius: "12px",
                       boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
+                      color: "#0f172a",
+                      fontSize: 12,
                     }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}`, ""]}
+                    formatter={(value) => [`$${Number(value).toLocaleString()}`, ""]}
                   />
                   <Area
                     type="monotone"
@@ -414,13 +494,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Second Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Spending by Category */}
         <Card>
           <CardHeader>
             <CardTitle>{t("dashboard.spendingByCategory")}</CardTitle>
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              {t("analytics.categoryBreakdownDesc")}
+              {t("analytics.spendingByCategoryDesc")}
             </div>
           </CardHeader>
           <CardContent>
@@ -435,10 +515,10 @@ export default function DashboardPage() {
                       </linearGradient>
                     ))}
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.25} vertical={false} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12 }} />
-                  <Tooltip contentStyle={{ backgroundColor: "rgba(255,255,255,0.95)", border: "1px solid #e2e8f0", borderRadius: "12px" }} />
+                  <Tooltip contentStyle={{ backgroundColor: "rgba(255,255,255,0.97)", border: "1px solid #e2e8f0", borderRadius: "12px", color: "#0f172a", fontSize: 12 }} />
                   {categoryData.map((entry, index) => (
                     <Area
                       key={entry.name}
@@ -465,15 +545,15 @@ export default function DashboardPage() {
                 <Link href="/transactions">
                   <Button variant="ghost" size="sm" className="text-indigo-600 dark:text-indigo-400 h-7">
                     {t("dashboard.seeAll")}
-                    <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                    <ArrowUpRight className="h-3.5 w-3.5 ms-1" aria-hidden="true" />
                   </Button>
                 </Link>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               {recentTransactions.length === 0 ? (
-                <div className="p-6 text-center">
-                  <CreditCard className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                <div className="px-6 py-10 text-center">
+                  <CreditCard className="h-8 w-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
                   <p className="text-sm text-gray-500 dark:text-gray-400">{t("transactions.noTransactions")}</p>
                 </div>
               ) : (
@@ -492,14 +572,14 @@ export default function DashboardPage() {
                           <p className="text-sm font-medium text-gray-900 dark:text-white">
                             {txn.merchantName || "Unknown"}
                           </p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             {txn.category} · {new Date(txn.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p
-                          className={`text-sm font-semibold ${
+                          className={`text-sm font-semibold tabular-nums ${
                             txn.type === "income" ? "text-emerald-600 dark:text-emerald-400" : "text-gray-900 dark:text-white"
                           }`}
                         >
@@ -524,8 +604,8 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               {upcomingSubscriptions.length === 0 ? (
-                <div className="p-6 text-center">
-                  <Repeat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                <div className="px-6 py-10 text-center">
+                  <Repeat className="h-8 w-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
                   <p className="text-sm text-gray-500 dark:text-gray-400">{t("subscriptions.noUpcoming")}</p>
                 </div>
               ) : (
@@ -541,12 +621,12 @@ export default function DashboardPage() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">{sub.merchantName}</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             {t("subscriptions.nextPayment")}: {new Date(sub.nextPaymentDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           </p>
                         </div>
                       </div>
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      <span className="text-sm font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">
                         +${sub.amount.toFixed(2)}
                       </span>
                     </div>
@@ -577,7 +657,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white">{account.name}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 capitalize">{account.type}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{account.type}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -591,7 +671,7 @@ export default function DashboardPage() {
               href="/accounts"
               className="flex items-center justify-between p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors group"
             >
-              <div className="flex items-center gap-3 text-gray-400 dark:text-gray-500 group-hover:text-indigo-500 transition-colors">
+              <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400 group-hover:text-indigo-500 transition-colors">
                 <div className="h-10 w-10 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
                   <PlusIcon className="h-5 w-5" />
                 </div>
@@ -605,4 +685,3 @@ export default function DashboardPage() {
   );
 }
 
-import { PlusIcon } from "lucide-react";

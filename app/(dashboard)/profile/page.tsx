@@ -122,14 +122,14 @@ export default function ProfilePage() {
         year: "numeric",
         day: "numeric",
       })
-    : "—";
+    : "-";
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
             <UserIcon className="h-6 w-6 text-indigo-500" />
             {t("profile.title")}
           </h1>
@@ -167,7 +167,7 @@ export default function ProfilePage() {
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
                     {user?.name || "NewFinTech User"}
                   </h2>
                   {demoMode && (
@@ -193,7 +193,7 @@ export default function ProfilePage() {
           {/* Detailed Info Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700/60">
             <div className="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 flex items-center gap-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5 text-indigo-500" />
                 {t("profile.memberSince")}
               </p>
@@ -203,7 +203,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 flex items-center gap-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
                 <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
                 Default Currency
               </p>
@@ -213,7 +213,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 flex items-center gap-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
                 <Globe className="h-3.5 w-3.5 text-blue-500" />
                 Language
               </p>
@@ -223,7 +223,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 flex items-center gap-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
                 <Shield className="h-3.5 w-3.5 text-purple-500" />
                 Account Security
               </p>
@@ -234,7 +234,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                 Theme
               </p>
               <p className="text-base font-semibold text-gray-900 dark:text-white capitalize">
@@ -243,7 +243,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                 Country
               </p>
               <p className="text-base font-semibold text-gray-900 dark:text-white">
@@ -280,7 +280,7 @@ export default function ProfilePage() {
                   {t("profile.emailAddress")}
                 </label>
                 <Input value={user?.email || ""} disabled className="bg-gray-100 dark:bg-gray-800 cursor-not-allowed" />
-                <span className="text-[11px] text-gray-400 mt-1 block">
+                <span className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 block">
                   Email address cannot be changed directly.
                 </span>
               </div>

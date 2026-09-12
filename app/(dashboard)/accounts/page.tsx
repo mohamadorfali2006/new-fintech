@@ -9,7 +9,7 @@ import {
   ArrowDownRight,
   CreditCard,
   PiggyBank,
-  Lightning,
+  Zap,
   Calendar,
   RefreshCw,
   AlertTriangle,
@@ -92,8 +92,8 @@ function StatCard({
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{formatted}</p>
-          {subtitle && <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</p>}
+          <p className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1">{formatted}</p>
+          {subtitle && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>}
         </div>
         <div className="h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
           <Icon className="h-5 w-5" />
@@ -151,7 +151,7 @@ export default function AccountsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t("accounts.title")}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{t("accounts.title")}</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">{t("accounts.connectedAccounts")}</p>
       </div>
 
@@ -170,19 +170,19 @@ export default function AccountsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("accounts.accountsBalance")}</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+              <p className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1">
                 {new Intl.NumberFormat("en-US", { style: "currency", currency }).format(total)}
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("accounts.title")}</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{accounts.length}</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t("accounts.connectedAccounts")}</p>
+              <p className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1">{accounts.length}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t("accounts.connectedAccounts")}</p>
             </div>
             <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t("accounts.lastSynced")}</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">Just now</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t("accounts.syncSuccess")}</p>
+              <p className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1">Just now</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t("accounts.syncSuccess")}</p>
             </div>
           </div>
 
@@ -192,7 +192,7 @@ export default function AccountsPage() {
               <CardContent className="py-12">
                 <div className="text-center">
                   <div className="h-14 w-14 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-                    <CreditCard className="h-7 w-7 text-gray-400" />
+                    <CreditCard className="h-7 w-7 text-gray-500 dark:text-gray-400" />
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">{t("accounts.noAccounts")}</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">{t("accounts.noAccountsDesc")}</p>
@@ -215,7 +215,7 @@ export default function AccountsPage() {
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900 dark:text-white">{acc.name}</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 capitalize">{acc.type}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{acc.type}</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -224,11 +224,11 @@ export default function AccountsPage() {
                       }`}>
                         {new Intl.NumberFormat("en-US", { style: "currency", currency }).format(acc.balance)}
                       </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">{t("accounts.availableBalance")}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t("accounts.availableBalance")}</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800 mt-2">
-                    <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                       <RefreshCw className="h-3 w-3" />
                       {t("accounts.lastSynced")}: Just now
                     </div>

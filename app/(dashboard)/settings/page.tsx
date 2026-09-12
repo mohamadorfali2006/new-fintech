@@ -222,7 +222,7 @@ export default function SettingsPage() {
     <div className="space-y-8 max-w-4xl mx-auto pb-12">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
           <SettingsIcon className="h-6 w-6 text-indigo-500" />
           {t("settings.title")}
         </h1>

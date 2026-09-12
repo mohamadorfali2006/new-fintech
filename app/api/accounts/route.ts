@@ -8,7 +8,7 @@ export async function GET() {
 
   const accounts = await prisma.bankAccount.findMany({
     where: { userId: session.user.id, isDeleted: false },
-    orderBy: { name: "asc" },
+    orderBy: { accountName: "asc" },
   });
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
@@ -16,7 +16,8 @@ export async function GET() {
   return NextResponse.json({
     accounts: accounts.map((a) => ({
       id: a.id,
-      name: a.accountName ?? a.name,
+      name: a.accountName,
+      accountName: a.accountName,
       type: a.accountType,
       balance: a.balance,
       availableBalance: a.availableBalance,

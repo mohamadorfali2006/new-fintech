@@ -1,0 +1,18 @@
+# Keep secrets and junk out of the image (esp. .env — never bake it in).
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.local
+node_modules
+.next
+coverage
+prisma/dev.db
+prisma/*.db
+prisma/*.db-journal
+screenshots
+tests
+*.tsbuildinfo
+.DS_Store
+npm-debug.log*

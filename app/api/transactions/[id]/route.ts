@@ -26,6 +26,11 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });
   }
 
+  // Reject vacuous writes: at least one updatable field must be present.
+  if (Object.values(validated.data).every((v) => v === undefined)) {
+    return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+  }
+
   // Verify ownership
   const existing = await prisma.transaction.findFirst({
     where: { id, userId: session.user.id },
@@ -64,7 +69,7 @@ export async function GET(
 
   const transaction = await prisma.transaction.findFirst({
     where: { id, userId: session.user.id, isDeleted: false },
-    include: { account: { select: { id: true, name: true, accountType: true, currency: true } } },
+    include: { account: { select: { id: true, accountName: true, accountType: true, currency: true } } },
   });
 
   if (!transaction) {
@@ -74,6 +79,9 @@ export async function GET(
   return NextResponse.json({
     ...transaction,
     date: transaction.date.toISOString(),
-    account: transaction.account,
+    account: {
+      ...transaction.account,
+      name: transaction.account.accountName,
+    },
   });
 }

@@ -1,6 +1,38 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { z } from "zod";
+import {
+  appendDisclaimer,
+  buildMinimizedContext,
+  buildSystemPrompt,
+  estimateTokens,
+} from "@/lib/ai/safety";
+import {
+  consumeAiTokens,
+  DAILY_AI_TOKEN_CAP,
+  RESERVED_COMPLETION_TOKENS,
+} from "@/lib/rate-limit";
+
+const historyItemSchema = z.object({
+  role: z.enum(["user", "assistant", "system"]),
+  content: z.string().min(1).max(2000),
+});
+
+const chatRequestSchema = z.object({
+  message: z
+    .string()
+    .min(1, "Message is required")
+    .max(2000, "Message must be at most 2000 characters"),
+  history: z
+    .array(historyItemSchema)
+    .max(6, "History must contain at most 6 messages")
+    .optional()
+    .default([]),
+  // Opt-in: include raw merchant names in the LLM prompt. Default false —
+  // the model gets category aggregates + anonymized citation IDs instead.
+  includeMerchantNames: z.boolean().optional().default(false),
+});
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -10,11 +42,27 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const message = body.message?.trim();
+    const parsed = chatRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid request",
+          details: parsed.error.issues.map((i) => ({
+            path: i.path.join("."),
+            message: i.message,
+          })),
+        },
+        { status: 400 }
+      );
+    }
 
+    const message = parsed.data.message.trim();
     if (!message) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
+    // Already capped at 6 by validation; slice is defense in depth.
+    const history = parsed.data.history.slice(-6);
+    const includeMerchantNames = parsed.data.includeMerchantNames ?? false;
 
     // Fetch last 100 transactions for the current user
     const transactions = await prisma.transaction.findMany({
@@ -66,36 +114,53 @@ export async function POST(request: Request) {
 
     const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
 
+    // PII-minimized context: aggregates by default, raw merchant names only on opt-in.
+    const minimized = buildMinimizedContext({
+      transactions,
+      totalIncome,
+      totalExpenses,
+      netCashFlow,
+      savingsRate,
+      topCategories,
+      topMerchants,
+      budgets: budgets.map((b) => ({ category: b.category, amount: b.amount })),
+      accountCount: accounts.length,
+      totalBalance,
+      includeMerchantNames,
+    });
+
+    const systemPrompt = buildSystemPrompt(minimized.summaryText);
+
+    // Per-user daily token cap (prompt estimate + reserved completion).
+    const historyText = history.map((h) => h.content).join("\n");
+    const estimatedTokens =
+      estimateTokens(`${systemPrompt}\n${historyText}\n${message}`) + RESERVED_COMPLETION_TOKENS;
+    const budget = consumeAiTokens(session.user.id, estimatedTokens);
+    if (!budget.allowed) {
+      return NextResponse.json(
+        {
+          error: "Daily AI token budget exceeded. Please try again tomorrow.",
+          tokenUsage: {
+            used: budget.used,
+            remaining: budget.remaining,
+            cap: DAILY_AI_TOKEN_CAP,
+          },
+        },
+        { status: 429 }
+      );
+    }
+    const tokenUsage = {
+      used: budget.used,
+      remaining: budget.remaining,
+      cap: DAILY_AI_TOKEN_CAP,
+    };
+
     const apiKey = process.env.AI_API_KEY;
     const baseUrl = process.env.AI_BASE_URL || "https://api.openai.com/v1";
     const model = process.env.AI_MODEL || "gpt-4o-mini";
 
     if (apiKey) {
       try {
-        const systemPrompt = `You are NewFinTech's AI financial intelligence assistant.
-Analyze the user's financial queries based strictly on their transaction data and portfolio context provided below.
-Be concise, clear, encouraging, and accurate. Format numbers nicely as currency (USD).
-If suggesting actions, keep them practical and grounded.
-
-User Financial Summary:
-- Accounts Total Balance: $${totalBalance.toFixed(2)} across ${accounts.length} accounts
-- Recent Total Income (last ${transactions.length} txns): $${totalIncome.toFixed(2)}
-- Recent Total Expenses: $${totalExpenses.toFixed(2)}
-- Net Cash Flow: $${netCashFlow.toFixed(2)}
-- Savings Rate: ${savingsRate}%
-- Top Categories: ${topCategories.map(([c, a]) => `${c}: $${a.toFixed(2)}`).join(", ") || "None"}
-- Top Merchants: ${topMerchants.map(([m, a]) => `${m}: $${a.toFixed(2)}`).join(", ") || "None"}
-- Active Budgets: ${budgets.map((b) => `${b.category}: $${b.amount}/mo`).join(", ") || "None"}
-- Recent 10 Transactions:
-${transactions
-  .slice(0, 10)
-  .map(
-    (t) =>
-      `• ${t.date.toISOString().split("T")[0]} | ${t.merchantName || "Unknown"} | ${t.type.toUpperCase()} | $${t.amount.toFixed(2)} | ${t.category}`
-  )
-  .join("\n")}
-`;
-
         const response = await fetch(`${baseUrl}/chat/completions`, {
           method: "POST",
           headers: {
@@ -106,7 +171,7 @@ ${transactions
             model,
             messages: [
               { role: "system", content: systemPrompt },
-              ...(body.history || []).slice(-6),
+              ...history,
               { role: "user", content: message },
             ],
             temperature: 0.7,
@@ -116,8 +181,9 @@ ${transactions
 
         if (response.ok) {
           const aiData = await response.json();
-          const reply = aiData.choices?.[0]?.message?.content;
-          if (reply) {
+          const rawReply: string | undefined = aiData.choices?.[0]?.message?.content;
+          if (rawReply) {
+            const reply = appendDisclaimer(rawReply, minimized.citations);
             return NextResponse.json({
               reply,
               metrics: {
@@ -126,6 +192,10 @@ ${transactions
                 netCashFlow,
                 savingsRate,
               },
+              citations: minimized.citations,
+              piiMinimized: true,
+              merchantNamesIncluded: minimized.merchantNamesIncluded,
+              tokenUsage,
             });
           }
         }
@@ -135,6 +205,7 @@ ${transactions
     }
 
     // Helpful mock response generation based on transactions
+    // (local-only fallback — no data leaves the server; own merchant names OK here).
     const query = message.toLowerCase();
     let reply = "";
 
@@ -209,13 +280,17 @@ ${transactions
     }
 
     return NextResponse.json({
-      reply,
+      reply: appendDisclaimer(reply, minimized.citations),
       metrics: {
         totalIncome,
         totalExpenses,
         netCashFlow,
         savingsRate,
       },
+      citations: minimized.citations,
+      piiMinimized: true,
+      merchantNamesIncluded: minimized.merchantNamesIncluded,
+      tokenUsage,
     });
   } catch (error) {
     console.error("AI chat error:", error);

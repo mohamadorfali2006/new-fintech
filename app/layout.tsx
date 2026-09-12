@@ -13,7 +13,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "NewFinTech — Personal Finance Intelligence",
+    default: "NewFinTech - Personal Finance Intelligence",
     template: "%s | NewFinTech",
   },
   description:
@@ -43,16 +43,16 @@ export default async function RootLayout({
     <html lang={locale} dir={locale === "ar" ? "rtl" : "ltr"} className={`${inter.variable} font-sans`}>
       <body>
         <NextIntlClientProvider messages={messages}>
-          <Providers>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="dark"
-              enableSystem
-              disableTransitionOnChange
-            >
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <Providers>
               {children}
-            </ThemeProvider>
-          </Providers>
+            </Providers>
+          </ThemeProvider>
         </NextIntlClientProvider>
       </body>
     </html>

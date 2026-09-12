@@ -197,7 +197,7 @@ export default function AiAssistantPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-indigo-500" />
             {t("ai.title")}
           </h1>
@@ -289,7 +289,7 @@ export default function AiAssistantPage() {
         {/* Suggestion Chips */}
         <div className="p-3 border-t border-gray-200 dark:border-gray-700/80 bg-white/50 dark:bg-gray-800/30 overflow-x-auto">
           <div className="flex items-center gap-2 min-w-max">
-            <span className="text-xs text-gray-400 font-medium mr-1 flex items-center gap-1">
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium mr-1 flex items-center gap-1">
               <HelpCircle className="h-3.5 w-3.5" />
               Suggestions:
             </span>
@@ -329,7 +329,7 @@ export default function AiAssistantPage() {
           </form>
 
           {/* Disclaimer */}
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center mt-2.5">
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 text-center mt-2.5">
             {t("ai.aiDisclaimer")}
           </p>
         </div>

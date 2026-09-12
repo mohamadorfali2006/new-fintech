@@ -1,12 +1,46 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { audit } from "@/lib/audit";
+import {
+  VALID_FREQUENCIES,
+  fromCents,
+  isValidFrequency,
+  normalizeToAnnualCost,
+  normalizeToMonthlyCost,
+  parsePositiveAmount,
+  resolveCurrencyScope,
+  roundMoney,
+  sumMoney,
+  toCents,
+  type Frequency,
+} from "@/lib/money";
 
-export async function GET() {
+function mixedCurrencyError(
+  currencies: string[],
+  unknownDisplay: boolean,
+  displayCurrency?: string
+) {
+  return NextResponse.json(
+    {
+      error: unknownDisplay
+        ? `Unknown displayCurrency "${displayCurrency}".`
+        : "Multiple subscription currencies present; pass ?displayCurrency=<CODE> to scope totals to one currency.",
+      code: "MIXED_CURRENCY",
+      currencies,
+      hint: "No FX conversion is performed; totals are computed in a single currency only.",
+    },
+    { status: 400 }
+  );
+}
+
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const displayCurrency = new URL(request.url).searchParams.get("displayCurrency") || undefined;
 
   const subscriptions = await prisma.subscription.findMany({
     where: {
@@ -16,21 +50,40 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  const enriched = subscriptions.map((sub) => {
-    let monthlyCost = sub.amount;
-    if (sub.frequency === "weekly") {
-      monthlyCost = sub.amount * 4.33;
-    } else if (sub.frequency === "yearly") {
-      monthlyCost = sub.amount / 12;
-    }
+  // Single-currency guard: refuse to silently mix per-subscription currencies.
+  const scope = resolveCurrencyScope(
+    subscriptions.map((s) => s.currency || "USD"),
+    displayCurrency
+  );
+  if (scope.mixed && (scope.unknownDisplay || !displayCurrency)) {
+    return mixedCurrencyError(
+      [...new Set(subscriptions.map((s) => s.currency || "USD"))],
+      scope.unknownDisplay,
+      displayCurrency
+    );
+  }
+  const visible = scope.mixed
+    ? subscriptions.filter((s) => (s.currency || "USD") === scope.baseCurrency)
+    : subscriptions;
 
-    const annualCost = monthlyCost * 12;
+  const nowMs = Date.now();
+  const enriched = visible.map((sub) => {
+    // Read-path tolerance for legacy rows: unknown frequencies fall back to
+    // monthly here, but POST (write path) strictly rejects them with 400.
+    // Normalization uses 52 weeks/yr ÷ 12 months/yr for weekly (see
+    // WEEKLY_TO_MONTHLY_COST in lib/money.ts), never the old 4.33 literal.
+    const frequency: Frequency = isValidFrequency(sub.frequency) ? sub.frequency : "monthly";
+    const monthlyCost = roundMoney(normalizeToMonthlyCost(sub.amount, frequency));
+    const annualCost = roundMoney(normalizeToAnnualCost(sub.amount, frequency));
 
     let daysUntilDue: number | null = null;
     if (sub.nextPaymentDate) {
-      const diffMs = new Date(sub.nextPaymentDate).getTime() - Date.now();
+      const diffMs = new Date(sub.nextPaymentDate).getTime() - nowMs;
       daysUntilDue = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
     }
+
+    const stale =
+      !sub.nextPaymentDate || new Date(sub.nextPaymentDate).getTime() < nowMs;
 
     return {
       id: sub.id,
@@ -39,24 +92,37 @@ export async function GET() {
       currency: sub.currency || "USD",
       frequency: sub.frequency,
       category: sub.category || "Subscriptions",
-      monthlyCost: Math.round(monthlyCost * 100) / 100,
-      annualCost: Math.round(annualCost * 100) / 100,
+      monthlyCost,
+      annualCost,
       nextPaymentDate: sub.nextPaymentDate ? sub.nextPaymentDate.toISOString() : null,
       daysUntilDue,
       createdAt: sub.createdAt.toISOString(),
+      // Internal flag: no upcoming payment, so this may be a forgotten
+      // subscription the user could cancel.
+      stale,
     };
   });
 
-  const totalMonthly = enriched.reduce((acc, s) => acc + s.monthlyCost, 0);
-  const totalAnnual = enriched.reduce((acc, s) => acc + s.annualCost, 0);
+  // Totals accumulate in integer cents via lib/money.ts.
+  const totalMonthly = sumMoney(enriched.map((s) => s.monthlyCost));
+  const totalAnnual = sumMoney(enriched.map((s) => s.annualCost));
+  // potentialSavings = annualized cost of stale subscriptions (no upcoming
+  // payment date): the amount recoverable by cancelling forgotten renewals.
+  // Computed in cents from each stale sub's annual cost.
+  let staleCents = 0;
+  for (const s of enriched) {
+    if (s.stale) staleCents += toCents(s.annualCost);
+  }
 
   return NextResponse.json({
     subscriptions: enriched,
     summary: {
-      totalMonthly: Math.round(totalMonthly * 100) / 100,
-      totalAnnual: Math.round(totalAnnual * 100) / 100,
+      totalMonthly,
+      totalAnnual,
       count: enriched.length,
-      potentialSavings: Math.round(totalAnnual * 100) / 100,
+      potentialSavings: fromCents(staleCents),
+      currency: scope.baseCurrency,
+      ...(scope.mixed ? { excludedCurrencies: scope.excludedCurrencies } : {}),
     },
     demoMode: process.env.DEMO_MODE === "true",
   });
@@ -72,31 +138,54 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { merchantName, amount, frequency, category, nextPaymentDate } = body;
 
-    if (!merchantName || !amount || isNaN(Number(amount))) {
-      return NextResponse.json({ error: "Merchant name and valid amount are required" }, { status: 400 });
+    if (!merchantName || typeof merchantName !== "string" || !merchantName.trim()) {
+      return NextResponse.json({ error: "Merchant name is required" }, { status: 400 });
     }
 
-    const parsedAmount = parseFloat(amount);
-    const validFreq = ["monthly", "weekly", "yearly"].includes(frequency) ? frequency : "monthly";
+    // Strict amount validation: must be a positive finite number.
+    // Strings like "50" are accepted; negatives, zero, NaN, Infinity -> 400.
+    const parsedAmount = parsePositiveAmount(amount);
+    if (parsedAmount === null) {
+      return NextResponse.json(
+        { error: "Amount must be a positive number" },
+        { status: 400 }
+      );
+    }
+
+    // Strict frequency validation: unknown values are rejected, never coerced.
+    if (!isValidFrequency(frequency)) {
+      return NextResponse.json(
+        {
+          error: `Invalid frequency. Must be one of: ${VALID_FREQUENCIES.join(", ")}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    let next: Date | null = null;
+    if (nextPaymentDate !== undefined && nextPaymentDate !== null && nextPaymentDate !== "") {
+      next = new Date(nextPaymentDate);
+      if (Number.isNaN(next.getTime())) {
+        return NextResponse.json({ error: "Invalid nextPaymentDate" }, { status: 400 });
+      }
+    }
 
     const subscription = await prisma.subscription.create({
       data: {
         userId: session.user.id,
         merchantName: merchantName.trim(),
         amount: parsedAmount,
-        frequency: validFreq,
-        category: category?.trim() || "Subscriptions",
-        nextPaymentDate: nextPaymentDate ? new Date(nextPaymentDate) : null,
+        frequency,
+        category: typeof category === "string" && category.trim() ? category.trim() : "Subscriptions",
+        nextPaymentDate: next,
       },
     });
 
-    let monthlyCost = subscription.amount;
-    if (subscription.frequency === "weekly") {
-      monthlyCost = subscription.amount * 4.33;
-    } else if (subscription.frequency === "yearly") {
-      monthlyCost = subscription.amount / 12;
-    }
+    const monthlyCost = roundMoney(normalizeToMonthlyCost(subscription.amount, frequency));
+    const annualCost = roundMoney(normalizeToAnnualCost(subscription.amount, frequency));
 
+    // Observability-only audit (fire-and-forget).
+    void audit({ userId: session.user.id, action: "subscription.create", entity: "subscription", entityId: subscription.id });
     return NextResponse.json(
       {
         id: subscription.id,
@@ -105,8 +194,8 @@ export async function POST(request: Request) {
         currency: subscription.currency,
         frequency: subscription.frequency,
         category: subscription.category,
-        monthlyCost: Math.round(monthlyCost * 100) / 100,
-        annualCost: Math.round(monthlyCost * 12 * 100) / 100,
+        monthlyCost,
+        annualCost,
         nextPaymentDate: subscription.nextPaymentDate?.toISOString() || null,
         createdAt: subscription.createdAt.toISOString(),
       },
@@ -144,5 +233,7 @@ export async function DELETE(request: Request) {
     data: { isDeleted: true },
   });
 
+  // Observability-only audit (fire-and-forget).
+  void audit({ userId: session.user.id, action: "subscription.delete", entity: "subscription", entityId: id });
   return NextResponse.json({ success: true });
 }

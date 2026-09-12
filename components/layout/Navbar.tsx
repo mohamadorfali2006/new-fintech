@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
@@ -18,44 +18,51 @@ import {
   Settings,
   User,
   LogOut,
-  Shield,
   Globe,
   ChevronDown,
+  MoreHorizontal,
+  Wallet,
   Menu,
   X,
-  CreditCard,
-  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 
 const navItems = [
-  { href: "/dashboard", label: "nav.dashboard", icon: LayoutDashboard },
-  { href: "/transactions", label: "nav.transactions", icon: ArrowLeftRight },
-  { href: "/accounts", label: "nav.accounts", icon: Building2 },
-  { href: "/budgets", label: "nav.budgets", icon: PieChart },
-  { href: "/analytics", label: "nav.analytics", icon: BarChart3 },
-  { href: "/insights", label: "nav.insights", icon: Lightbulb },
-  { href: "/subscriptions", label: "nav.subscriptions", icon: Repeat },
-  { href: "/ai", label: "nav.aiAssistant", icon: Bot },
-  { href: "/notifications", label: "nav.notifications", icon: Bell },
+  { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/transactions", labelKey: "nav.transactions", icon: ArrowLeftRight },
+  { href: "/accounts", labelKey: "nav.accounts", icon: Building2 },
+  { href: "/budgets", labelKey: "nav.budgets", icon: PieChart },
+  { href: "/analytics", labelKey: "nav.analytics", icon: BarChart3 },
+  { href: "/insights", labelKey: "nav.insights", icon: Lightbulb },
+  { href: "/subscriptions", labelKey: "nav.subscriptions", icon: Repeat },
+  { href: "/ai", labelKey: "nav.aiAssistant", icon: Bot },
+  { href: "/notifications", labelKey: "nav.notifications", icon: Bell },
 ];
 
 const bottomNavItems = [
-  { href: "/settings", label: "nav.settings", icon: Settings, labelKey: "nav.settings" },
-  { href: "/profile", label: "nav.profile", icon: User, labelKey: "nav.profile" },
+  { href: "/settings", labelKey: "nav.settings", icon: Settings },
+  { href: "/profile", labelKey: "nav.profile", icon: User },
 ];
+
+const PRIMARY_NAV_COUNT = 5;
 
 export function Navbar({ transparent = false }: { transparent?: boolean }) {
   const t = useTranslations();
   const pathname = usePathname();
   const { data: session } = useSession();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
-  const locale = typeof window !== "undefined" ? (window as any).__NEXT_DATA__.params?.locale ?? "en" : "en";
-  const dir = locale === "ar" ? "rtl" : "ltr";
+  const primaryItems = navItems.slice(0, PRIMARY_NAV_COUNT);
+  const overflowItems = navItems.slice(PRIMARY_NAV_COUNT);
+
+  function closeAllMenus() {
+    setUserMenuOpen(false);
+    setMoreMenuOpen(false);
+    setMobileOpen(false);
+  }
 
   return (
     <>
@@ -66,21 +73,22 @@ export function Navbar({ transparent = false }: { transparent?: boolean }) {
           transparent && "bg-transparent"
         )}
       >
-        <div className="flex items-center justify-between h-16 px-4 lg:px-6" dir={dir}>
+        <div className="flex items-center justify-between h-16 px-4 lg:px-6">
           {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold">
+          <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold" aria-label={t("common.appName")}>
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-              <Wallet className="h-4 w-4 text-white" />
+              <Wallet className="h-4 w-4 text-white" aria-hidden="true" />
             </div>
             <span className="hidden sm:inline">{t("common.appName")}</span>
           </Link>
 
-          {/* Desktop nav — show first 5 items + dropdown */}
-          <nav className="hidden md:flex items-center gap-1" dir={dir}>
-            {navItems.slice(0, 5).map((item) => (
+          {/* Desktop nav — first 5 items + "More" overflow */}
+          <nav className="hidden md:flex items-center gap-1" aria-label="Primary">
+            {primaryItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={pathname.startsWith(item.href) ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   pathname.startsWith(item.href)
@@ -88,50 +96,77 @@ export function Navbar({ transparent = false }: { transparent?: boolean }) {
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200"
                 )}
               >
-                <item.icon className="h-4 w-4" />
-                {t(item.labelKey || item.label)}
+                <item.icon className="h-4 w-4" aria-hidden="true" />
+                {t(item.labelKey)}
               </Link>
             ))}
             <div className="relative">
               <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={moreMenuOpen}
+                aria-label={t("common.settings")}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  pathname.startsWith("/settings")
+                  overflowItems.some((i) => pathname.startsWith(i.href)) || pathname.startsWith("/settings")
                     ? "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200"
                 )}
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                onClick={() => {
+                  setMoreMenuOpen(!moreMenuOpen);
+                  setUserMenuOpen(false);
+                }}
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden lg:inline">{t("common.settings")}</span>
               </button>
-              {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border bg-popover p-1 shadow-lg animate-in fade-in-0 zoom-in-95">
+              {moreMenuOpen && (
+                <div role="menu" className="absolute end-0 mt-2 w-56 rounded-xl border border-border bg-popover p-1 shadow-lg animate-in fade-in-0 zoom-in-95">
+                  {overflowItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      role="menuitem"
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
+                        pathname.startsWith(item.href)
+                          ? "bg-accent text-accent-foreground"
+                          : "text-popover-foreground hover:bg-accent/50"
+                      )}
+                      onClick={() => setMoreMenuOpen(false)}
+                    >
+                      <item.icon className="h-4 w-4" aria-hidden="true" />
+                      {t(item.labelKey)}
+                    </Link>
+                  ))}
                   {bottomNavItems.map((item) => (
                     <Link
                       key={item.href}
                       href={item.href}
+                      role="menuitem"
                       className={cn(
                         "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
                         pathname === item.href
                           ? "bg-accent text-accent-foreground"
                           : "text-popover-foreground hover:bg-accent/50"
                       )}
-                      onClick={() => setUserMenuOpen(false)}
+                      onClick={() => setMoreMenuOpen(false)}
                     >
-                      <item.icon className="h-4 w-4" />
-                      {t(item.labelKey!)}
+                      <item.icon className="h-4 w-4" aria-hidden="true" />
+                      {t(item.labelKey)}
                     </Link>
                   ))}
                   <div className="my-1 border-t border-border/50" />
                   <button
+                    type="button"
+                    role="menuitem"
                     className="flex items-center gap-2 px-3 py-2 rounded-lg w-full text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                     onClick={() => {
-                      setUserMenuOpen(false);
+                      setMoreMenuOpen(false);
                       signOut({ callbackUrl: "/login" });
                     }}
                   >
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-4 w-4" aria-hidden="true" />
                     {t("common.logout")}
                   </button>
                 </div>
@@ -140,34 +175,52 @@ export function Navbar({ transparent = false }: { transparent?: boolean }) {
           </nav>
 
           {/* Right side */}
-          <div className="flex items-center gap-2" dir={dir}>
+          <div className="flex items-center gap-2">
+            {/* Mobile hamburger */}
+            <button
+              type="button"
+              className="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-expanded={mobileOpen}
+              aria-label={mobileOpen ? t("components.collapse") : t("components.expand")}
+              onClick={() => setMobileOpen(!mobileOpen)}
+            >
+              {mobileOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+            </button>
             <Link
-              href={`/i18n/${locale === "ar" ? "en" : "ar"}`}
+              href="/settings"
               className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               title={t("common.language")}
+              aria-label={t("common.language")}
             >
-              <Globe className="h-4 w-4" />
+              <Globe className="h-4 w-4" aria-hidden="true" />
             </Link>
             {session ? (
               <div className="relative">
                 <button
-                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                  className="flex items-center gap-2 ps-2 pe-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  onClick={() => {
+                    setUserMenuOpen(!userMenuOpen);
+                    setMoreMenuOpen(false);
+                  }}
                 >
-                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-semibold">
+                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-semibold" aria-hidden="true">
                     {session.user?.name?.charAt(0).toUpperCase() ?? "U"}
                   </div>
                   <span className="hidden sm:inline text-sm font-medium">
                     {session.user?.name || session.user?.email?.split("@")[0]}
                   </span>
-                  <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
                 </button>
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border bg-popover p-1 shadow-lg animate-in fade-in-0 zoom-in-95">
+                  <div role="menu" className="absolute end-0 mt-2 w-56 rounded-xl border border-border bg-popover p-1 shadow-lg animate-in fade-in-0 zoom-in-95">
                     {bottomNavItems.map((item) => (
                       <Link
                         key={item.href}
                         href={item.href}
+                        role="menuitem"
                         className={cn(
                           "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
                           pathname === item.href
@@ -176,19 +229,21 @@ export function Navbar({ transparent = false }: { transparent?: boolean }) {
                         )}
                         onClick={() => setUserMenuOpen(false)}
                       >
-                        <item.icon className="h-4 w-4" />
-                        {t(item.labelKey!)}
+                        <item.icon className="h-4 w-4" aria-hidden="true" />
+                        {t(item.labelKey)}
                       </Link>
                     ))}
                     <div className="my-1 border-t border-border/50" />
                     <button
+                      type="button"
+                      role="menuitem"
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 w-full"
                       onClick={() => {
                         setUserMenuOpen(false);
                         signOut({ callbackUrl: "/login" });
                       }}
                     >
-                      <LogOut className="h-4 w-4" />
+                      <LogOut className="h-4 w-4" aria-hidden="true" />
                       {t("common.logout")}
                     </button>
                   </div>
@@ -207,12 +262,13 @@ export function Navbar({ transparent = false }: { transparent?: boolean }) {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background pt-3 pb-safe" dir={dir}>
-          <div className="flex items-center justify-around max-h-[60vh] overflow-y-auto">
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background pt-3 pb-safe">
+          <nav aria-label="Mobile" className="flex items-center justify-around max-h-[60vh] overflow-y-auto">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={pathname.startsWith(item.href) ? "page" : undefined}
                 className={cn(
                   "flex flex-col items-center gap-1 p-2 rounded-xl min-w-[64px] transition-colors",
                   pathname.startsWith(item.href)
@@ -221,12 +277,13 @@ export function Navbar({ transparent = false }: { transparent?: boolean }) {
                 )}
                 onClick={() => setMobileOpen(false)}
               >
-                <item.icon className="h-5 w-5" />
-                <span className="text-[10px] font-medium">{t(item.label)}</span>
+                <item.icon className="h-5 w-5" aria-hidden="true" />
+                <span className="text-[10px] font-medium">{t(item.labelKey)}</span>
               </Link>
             ))}
             <Link
               href="/settings"
+              aria-current={pathname === "/settings" ? "page" : undefined}
               className={cn(
                 "flex flex-col items-center gap-1 p-2 rounded-xl min-w-[64px] transition-colors",
                 pathname === "/settings"
@@ -235,25 +292,23 @@ export function Navbar({ transparent = false }: { transparent?: boolean }) {
               )}
               onClick={() => setMobileOpen(false)}
             >
-              <Settings className="h-5 w-5" />
+              <Settings className="h-5 w-5" aria-hidden="true" />
               <span className="text-[10px] font-medium">{t("nav.settings")}</span>
             </Link>
             <button
+              type="button"
               className="flex flex-col items-center gap-1 p-2 rounded-xl min-w-[64px] text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
               onClick={() => {
-                setMobileOpen(false);
+                closeAllMenus();
                 signOut({ callbackUrl: "/login" });
               }}
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-5 w-5" aria-hidden="true" />
               <span className="text-[10px] font-medium">{t("common.logout")}</span>
             </button>
-          </div>
+          </nav>
         </div>
       )}
     </>
   );
 }
-
-// Re-export MoreHorizontal from lucide
-import { MoreHorizontal } from "lucide-react";

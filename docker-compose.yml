@@ -1,0 +1,54 @@
+# NewFinTech — prod stack: app (Dockerfile) + Postgres 16.
+# Usage (see DEPLOY.md for the full checklist):
+#   1. cp .env.example .env.production  # then set AUTH_SECRET, POSTGRES_PASSWORD
+#   2. Switch prisma provider to "postgresql", generate migrations (DEPLOY.md)
+#   3. POSTGRES_PASSWORD=... AUTH_SECRET=... docker compose up -d --build
+#
+# Required shell env on every `up`: POSTGRES_PASSWORD, AUTH_SECRET.
+# (Compose errors fast if either is missing — no silent insecure defaults.)
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fintech
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the shell or .env.production}
+      POSTGRES_DB: fintech
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fintech -d fintech"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      # Exposed so you can run `prisma migrate dev` from the host against it.
+      # Remove in locked-down environments.
+      - "5432:5432"
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_PROVIDER: postgresql
+      DATABASE_URL: postgresql://fintech:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/fintech?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in the shell or .env.production}
+      AUTH_TRUST_HOST: "true"
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-NewFinTech}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+
+volumes:
+  pgdata:

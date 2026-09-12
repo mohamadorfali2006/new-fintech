@@ -14,6 +14,8 @@
  * All providers normalize data into our internal Transaction/Account shapes.
  */
 
+import { assertProviderAllowed, getDefaultBankProvider } from "@/lib/flags";
+
 export interface AccountInfo {
   institutionName: string;
   institutionId: string;
@@ -184,7 +186,7 @@ function buildMockTransactions(accountId: string): RawTransaction[] {
       transactions.push({
         id: `txn_${id++}`,
         accountId,
-        amount,
+        amount: sub.amount,
         type: "expense",
         merchantName: sub.merchant,
         description: `Monthly subscription - ${sub.merchant}`,
@@ -254,17 +256,113 @@ export const mockProvider: BankProvider = {
 };
 
 // Provider registry — add new providers here without touching app code.
+// NOTE (Phase-3): `plaid-sandbox` is a STUB behind BANK_PLAID_ENABLED.
+// It returns small deterministic sandbox fixtures (stable IDs, so sync dedup
+// is verifiable) and never calls any Plaid API. Swap the stub body for the
+// real `plaid` SDK client when credentials exist — the interface is unchanged.
+
+export const plaidSandboxProvider: BankProvider = {
+  name: "plaid-sandbox",
+  async connect() {
+    // TODO(Phase-4): real Plaid Link token flow (link_token/create → public_token exchange).
+    return {
+      success: true,
+      url: "https://sandbox.plaid.com/link?stub=true",
+    };
+  },
+  async disconnect() {
+    // TODO(Phase-4): call plaid /item/remove with the decrypted access token.
+    return { success: true };
+  },
+  async sync() {
+    const now = new Date();
+    const accounts: AccountInfo[] = [
+      {
+        institutionName: "First Platypus Bank",
+        institutionId: "ins_platypus",
+        accountName: "Plaid Sandbox Checking",
+        accountType: "checking",
+        accountNumber: "****1111",
+        currency: "USD",
+        balance: 2100.42,
+        availableBalance: 1985.42,
+        accountId: "plaid_sandbox_acc_chk",
+      },
+      {
+        institutionName: "First Platypus Bank",
+        institutionId: "ins_platypus",
+        accountName: "Plaid Sandbox Savings",
+        accountType: "savings",
+        accountNumber: "****2222",
+        currency: "USD",
+        balance: 8950.0,
+        availableBalance: 8950.0,
+        accountId: "plaid_sandbox_acc_sav",
+      },
+    ];
+    const transactions: RawTransaction[] = [
+      {
+        id: "plaid_sandbox_txn_001",
+        accountId: "plaid_sandbox_acc_chk",
+        amount: 4.2,
+        type: "expense",
+        merchantName: "Sandbox Coffee",
+        description: "Sandbox fixture — coffee",
+        date: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1),
+        status: "posted",
+        originalData: { provider: "plaid-sandbox" },
+      },
+      {
+        id: "plaid_sandbox_txn_002",
+        accountId: "plaid_sandbox_acc_chk",
+        amount: 500.0,
+        type: "income",
+        merchantName: "Sandbox Payroll",
+        description: "Sandbox fixture — payroll",
+        date: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2),
+        status: "posted",
+        originalData: { provider: "plaid-sandbox" },
+      },
+      {
+        id: "plaid_sandbox_txn_003",
+        accountId: "plaid_sandbox_acc_sav",
+        amount: 100.0,
+        type: "expense",
+        merchantName: "Sandbox Transfer",
+        description: "Sandbox fixture — internal transfer",
+        date: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3),
+        status: "pending",
+        originalData: { provider: "plaid-sandbox" },
+      },
+    ];
+    return { accounts, transactions, lastSyncedAt: new Date() };
+  },
+  async getInstitutions() {
+    return [
+      { id: "ins_platypus", name: "First Platypus Bank" },
+      { id: "ins_tartan", name: "Tartan Bank (sandbox)" },
+    ];
+  },
+};
+
 const providers: Record<string, BankProvider> = {
   mock: mockProvider,
-  // plaid: new PlaidProvider({...}),
+  // Registered but gated: use getProvider() (throws unless BANK_PLAID_ENABLED=true).
+  "plaid-sandbox": plaidSandboxProvider,
   // truelayer: new TrueLayerProvider({...}),
   // teller: new TellerProvider({...}),
 };
 
 export function getProvider(name: string): BankProvider {
+  if (name !== "mock") assertProviderAllowed(name);
   const provider = providers[name];
   if (!provider) throw new Error(`Unknown bank provider: ${name}`);
   return provider;
+}
+
+/** Active provider for flows that don't name one: mock unless flagged. */
+export function getActiveProvider(): BankProvider {
+  return getProvider(getDefaultBankProvider());
 }
 
 export { MOCK_INSTITUTIONS, MOCK_ACCOUNTS };

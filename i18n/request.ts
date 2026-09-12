@@ -6,11 +6,13 @@ export type Locale = (typeof locales)[number];
 export const defaultLocale: Locale = "en";
 
 export default getRequestConfig(async ({ locale }) => {
-  if (!locales.includes(locale as Locale)) notFound();
+  const resolvedLocale = (locale ?? defaultLocale) as Locale;
+  if (!locales.includes(resolvedLocale)) notFound();
 
-  const messages = (await import(`../../messages/${locale}.json`)).default;
+  const messages = (await import(`../messages/${resolvedLocale}.json`)).default;
 
   return {
+    locale: resolvedLocale,
     messages,
     timeZone: "UTC",
   };
