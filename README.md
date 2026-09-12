@@ -23,7 +23,7 @@ Demo login: `demo@newfintech.app` / `Demo1234!`
 
 ## Platform tour
 
-<video src="docs/showcase/tour.mp4" width="100%" controls></video>
+<video src="https://raw.githubusercontent.com/mohamadorfali2006/new-fintech/master/docs/showcase/tour.mp4" width="100%" controls></video>
 
 A 20-second launch cut: dashboard, analytics, transactions, and budgets, filmed live in dark mode.
 
