@@ -140,7 +140,7 @@ export default function AnalyticsPage() {
                 <BarChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.25} vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "#94a3b8", fontSize: 12 }} />
-                  <YAxis tick={{ fill: "#94a3b8", fontSize: 12 }} tickFormatter={(v) => `$${v / 1000}k`} />
+                  <YAxis tick={{ fill: "#94a3b8", fontSize: 12 }} tickFormatter={(v) => (v >= 1000 ? `$${v / 1000}k` : `$${v}`)} />
                   <Tooltip
                     contentStyle={{ backgroundColor: "rgba(255,255,255,0.97)", border: "1px solid #e2e8f0", borderRadius: "12px", color: "#0f172a", fontSize: 12 }}
                     formatter={(value) => [`$${Number(value).toLocaleString()}`, ""]}
@@ -208,7 +208,7 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
                 <span className="text-sm font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">
-                  -${m.amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                  -${Math.abs(m.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             ))}

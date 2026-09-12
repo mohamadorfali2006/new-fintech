@@ -21,7 +21,13 @@ pnpm run dev                # http://localhost:3000
 
 Demo login: `demo@newfintech.app` / `Demo1234!`
 
-## Showcase
+## Platform tour
+
+<video src="docs/showcase/tour.mp4" width="100%" controls></video>
+
+A 20-second launch cut: dashboard, analytics, transactions, and budgets, filmed live in dark mode.
+
+## Showcase stills
 
 | Landing | Sign in | Register |
 |---|---|---|
