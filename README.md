@@ -23,17 +23,11 @@ Demo login: `demo@newfintech.app` / `Demo1234!`
 
 ## Platform tour
 
-[![Watch the platform tour](docs/showcase/tour-thumb.png)](https://github.com/mohamadorfali2006/new-fintech/blob/master/docs/showcase/tour.mp4)
+[![NewFinTech platform tour](docs/showcase/tour.gif)](https://github.com/mohamadorfali2006/new-fintech/blob/master/docs/showcase/tour.mp4)
 
-*Click to play the 20-second launch cut: dashboard, analytics, transactions, and budgets, filmed live in dark mode.*
+## The concept
 
-## Showcase stills
-
-| Landing | Sign in | Register |
-|---|---|---|
-| ![Landing](docs/showcase/landing.png) | ![Login](docs/showcase/login.png) | ![Register](docs/showcase/register.png) |
-
-Dark mode throughout, Arabic RTL included, responsive from mobile to desktop.
+NewFinTech is a personal finance command center for people who want clarity about their money without surrendering their bank logins to a third party. It starts with honest math: every total is computed in integer cents, transfers never inflate income or expenses, and mixed currencies are refused instead of silently mis-added. On top of that foundation sit budgets with visible overspend, subscription tracking with renewal countdowns, a transparent health score you can audit, and an AI assistant that cites real transactions and carries a clear not-financial-advice disclaimer. English and Arabic with full RTL mirroring, dark mode throughout, responsive from mobile to desktop.
 
 ## What is inside
 
