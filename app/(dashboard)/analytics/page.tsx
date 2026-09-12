@@ -53,15 +53,28 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => { fetchData(); }, []);
 
   async function fetchData() {
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/analytics/overview");
+      if (!res.ok) {
+        // Surface API failures (401/400 MIXED_CURRENCY/500) instead of
+        // crashing on an error-shaped body missing the expected fields.
+        const body = await res.json().catch(() => null) as { error?: string; hint?: string } | null;
+        throw new Error(
+          [body?.error, body?.hint].filter(Boolean).join(" ") ||
+            `Request failed (${res.status})`
+        );
+      }
       const d = await res.json();
       setData(d);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load analytics");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -71,7 +84,24 @@ export default function AnalyticsPage() {
   async function handleRefresh() { setRefreshing(true); await fetchData(); }
 
   if (loading) return <LoadingScreen />;
-  if (!data) return null;
+  if (error || !data) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{t("analytics.title")}</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{t("analytics.overview")}</p>
+        </div>
+        <Card>
+          <CardContent className="p-6 sm:p-8 text-center">
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error || t("analytics.noData")}</p>
+            <Button variant="secondary" onClick={handleRefresh} isLoading={refreshing} className="mt-4">
+              Refresh
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const { totalIncome, totalExpenses, netSavings, savingsRate, avgDailySpending, monthlyGrowth, categoryData, monthlyData, topMerchants, demoMode } = data;
 
@@ -94,7 +124,7 @@ export default function AnalyticsPage() {
         <StatCard title={t("analytics.totalIncome")} value={totalIncome} Icon={TrendingUp} trend={monthlyGrowth >= 0 ? "up" : "down"} trendLabel={`${monthlyGrowth >= 0 ? "+" : ""}${monthlyGrowth.toFixed(1)}%`} />
         <StatCard title={t("analytics.totalExpenses")} value={totalExpenses} Icon={TrendingDown} trend={monthlyGrowth >= 0 ? "down" : "up"} trendLabel={`${Math.abs(monthlyGrowth).toFixed(1)}%`} />
         <StatCard title={t("analytics.netSavings")} value={netSavings} Icon={Wallet} />
-        <StatCard title={t("analytics.savingsRate")} value={savingsRate} Icon={PiggyBank} subtitle="% rate" />
+        <StatCard title={t("analytics.savingsRate")} value={savingsRate} Icon={PiggyBank} subtitle="% rate" prefix="" />
       </div>
 
       {/* Charts row */}
@@ -192,13 +222,14 @@ export default function AnalyticsPage() {
   );
 }
 
-function StatCard({ title, value, subtitle, trend, trendLabel, Icon }: {
+function StatCard({ title, value, subtitle, trend, trendLabel, Icon, prefix = "$" }: {
   title: string;
   value: number;
   subtitle?: string;
   trend?: "up" | "down";
   trendLabel?: string;
   Icon: React.FC<{ className?: string }>;
+  prefix?: string;
 }) {
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -206,7 +237,7 @@ function StatCard({ title, value, subtitle, trend, trendLabel, Icon }: {
         <div>
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
           <p className="text-2xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-white mt-1">
-            {`$${value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+            {`${prefix}${value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
           </p>
           {subtitle && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>}
         </div>

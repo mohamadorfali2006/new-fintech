@@ -204,10 +204,62 @@ export async function GET(request: Request) {
     80 * 0.2
   ));
 
+  // ---- Dashboard page contract -------------------------------------------
+  // app/(dashboard)/analytics expects monthly totals, growth vs previous
+  // month, a daily average, and top merchants. All sums reuse txnWhere, so
+  // soft-deleted / excluded / transfer rows stay out of every figure below.
+  const daysElapsed = now.getUTCDate();
+  const avgDailySpending =
+    daysElapsed > 0 ? roundMoney(monthlyExpenses / daysElapsed) : 0;
+
+  const prevMonthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)
+  );
+  const prevExpensesResult = await prisma.transaction.aggregate({
+    where: txnWhere({
+      type: "expense",
+      date: { gte: prevMonthStart, lt: monthStart },
+    }),
+    _sum: { amount: true },
+  });
+  const prevExpensesCents = toCents(
+    roundMoney(prevExpensesResult._sum.amount ?? 0)
+  );
+  const monthlyGrowth =
+    prevExpensesCents > 0
+      ? Math.round(
+          ((expenseCents - prevExpensesCents) / prevExpensesCents) * 1000
+        ) / 10
+      : 0;
+
+  const merchantGroups = await prisma.transaction.groupBy({
+    by: ["merchantName"],
+    where: txnWhere({
+      type: "expense",
+      date: { gte: monthStart },
+    }),
+    _sum: { amount: true },
+    _count: { _all: true },
+    orderBy: { _sum: { amount: "desc" } },
+    take: 5,
+  });
+  const topMerchants = merchantGroups.map((g) => ({
+    merchant: g.merchantName,
+    amount: roundMoney(g._sum.amount ?? 0),
+    count: g._count._all,
+  }));
+
   return NextResponse.json({
     totalBalance,
     monthlyIncome,
     monthlyExpenses,
+    // Aliases the analytics dashboard page reads (monthly scope).
+    totalIncome: monthlyIncome,
+    totalExpenses: monthlyExpenses,
+    netSavings: netCashFlow,
+    avgDailySpending,
+    monthlyGrowth,
+    topMerchants,
     savingsRate,
     netCashFlow,
     currency: scope.baseCurrency,
